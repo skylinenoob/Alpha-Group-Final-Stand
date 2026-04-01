@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Group: Final Stand - Combat Update</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Orbitron', sans-serif; }
+        
+        #ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; color: #0ff; padding: 25px; box-sizing: border-box;
+        }
+        
+        .stat-box { 
+            background: rgba(0, 15, 30, 0.85); 
+            padding: 15px; 
+            border: 1px solid #0ff; 
+            display: inline-block;
+            backdrop-filter: blur(5px);
+            margin-bottom: 5px;
+        }
+        .hp-bar { width: 250px; height: 10px; background: #033; margin-top: 10px; border: 1px solid #0ff; }
+        #hp-fill { height: 100%; background: #0ff; width: 100%; transition: 0.1s; }
+
+        #weapon-info { position: absolute; bottom: 25px; right: 25px; text-align: right; }
+        .weapon-name { font-size: 1.5em; font-weight: 900; color: #fff; text-shadow: 0 0 10px #0ff; }
+        .ammo-count { font-size: 1.2em; color: #ffcc00; margin-top: 5px; }
+
+        #level-display {
+            position: absolute; top: 25px; right: 25px; text-align: right;
+        }
+
+        #radar-container {
+            position: absolute; bottom: 25px; left: 25px;
+            width: 150px; height: 150px;
+            background: rgba(0, 40, 40, 0.5);
+            border: 2px solid #0ff;
+            border-radius: 50%;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+        }
+        #radar-canvas { width: 100%; height: 100%; }
+
+        #game-msg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.9); border: none; z-index: 100; text-align: center;
+        }
+
+        .tutorial-card {
+            max-width: 550px; background: rgba(0, 20, 40, 0.95); padding: 30px;
+            border: 2px solid #0ff; box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            display: none;
+        }
+        .tutorial-active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .btn {
+            background: #0ff; color: #000; border: none; padding: 12px 30px;
+            font-family: 'Orbitron'; font-weight: 900; cursor: pointer; margin: 10px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn:hover { background: #fff; box-shadow: 0 0 20px #0ff; }
+        .btn-outline { background: transparent; color: #0ff; border: 1px solid #0ff; }
+
+        #level-up-toast {
+            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+            color: #fff; font-size: 2em; font-weight: 900; text-shadow: 0 0 20px #0ff;
+            opacity: 0; transition: 0.5s; pointer-events: none;
+        }
+
+        .danger-pulse { animation: pulse 0.5s infinite alternate; border-color: #ff0044 !important; }
+        @keyframes pulse { from { box-shadow: 0 0 5px #ff0044; } to { box-shadow: 0 0 20px #ff0044; } }
+    </style>
+</head>
+<body>
+
+    <div id="game-msg">
+        <!-- Bước 0: Chào mừng -->
+        <div id="step-0" class="tutorial-card tutorial-active">
+            <h1 style="font-size: 3em; margin: 0; color: #fff;">ALPHA GROUP</h1>
+            <h2 style="color: #0ff; margin-bottom: 20px;">CHIẾN DỊCH: 20 LEVELS OF HELL</h2>
+            <p style="color: #ccc; line-height: 1.6;">QUY MÔ CHIẾN DỊCH ĐÃ TĂNG GẤP ĐÔI. Ngài phải sống sót qua 20 cấp độ hỏa lực. Kho đạn tổng: 2800 viên.</p>
+            <button class="btn" onclick="nextStep(1)">XEM HƯỚNG DẪN</button>
+            <button class="btn btn-outline" onclick="initGame()">BỎ QUA & CHIẾN ĐẤU</button>
+        </div>
+
+        <!-- Bước 1: Điều khiển & Giới hạn -->
+        <div id="step-1" class="tutorial-card">
+            <h2 style="color: #0ff;">01. ĐIỀU KHIỂN & KHAI HỎA</h2>
+            <div style="text-align: left; color: #fff; margin: 20px 0;">
+                <p>• <b>W, A, S, D</b>: Di chuyển Alpha-01.</p>
+                <p>• <b>Khai hỏa</b>: Chỉ cần <b>Click chuột</b> vào vị trí quân địch để bắn. <b>Giữ chuột</b> để bắn liên thanh.</p>
+                <p>• <b>Đổi súng</b>: Sử dụng <b>4 nút mũi tên</b> trên bàn phím hoặc <b>con lăn chuột</b>.</p>
+                <p>• <b>Cận chiến</b>: Vung dao <b>Ka-Bar</b> (Click chuột) ở khoảng cách gần để tiêu diệt địch mà không bị chạm vào.</p>
+                <p style="color: #ff4444; font-weight: bold;">• CẢNH BÁO SINH TỬ: Nếu Alpha-01 bị kẻ địch chạm trực tiếp vào người, ngài sẽ hy sinh ngay lập tức.</p>
+                <p style="color: #ffaa00;">• GIỚI HẠN MAP: Vượt qua vạch kẻ giới hạn sẽ làm mất tín hiệu và thất bại.</p>
+            </div>
+            <button class="btn" onclick="nextStep(2)">TIẾP THEO</button>
+        </div>
+
+        <!-- Bước 2: Tài nguyên & Đồng đội -->
+        <div id="step-2" class="tutorial-card">
+            <h2 style="color: #0ff;">02. ĐỒNG ĐỘI & CHIẾN THUẬT</h2>
+            <div style="text-align: left; color: #fff; margin: 20px 0;">
+                <p>• <b>Bot Đồng Đội</b>: Họ sẽ không chết khi chạm vào địch, nhưng sẽ dần bị <b>quá tải</b> bởi số lượng địch quá lớn và không thể bảo vệ ngài an toàn tuyệt đối qua từng cấp.</p>
+                <p>• <b>Boss</b>: Xuất hiện sau khi diệt một lượng địch nhất định. Cần rất nhiều hỏa lực để hạ gục.</p>
+                <p>• <b>Lựu Đạn</b>: Có 100 quả. Dùng để giải vây khi Bot bị quá tải.</p>
+            </div>
+            <button class="btn" onclick="nextStep(3)">TIẾP THEO</button>
+        </div>
+
+        <!-- Bước 3: Tiến hóa -->
+        <div id="step-3" class="tutorial-card">
+            <h2 style="color: #0ff;">03. ĐỘ KHÓ TĂNG TIẾN</h2>
+            <div style="text-align: left; color: #fff; margin: 20px 0;">
+                <p>• <b>Tiến hóa</b>: Kẻ địch nhanh hơn và trâu hơn sau mỗi cấp độ.</p>
+                <p>• Cấp 15: Kẻ thù đột biến (Bầu trời tím).</p>
+                <p>• Cấp 20: <b>Omega Arrival</b> - Trận chiến cuối cùng.</p>
+            </div>
+            <button class="btn" onclick="initGame()">BẮT ĐẦU CHIẾN ĐẤU</button>
+        </div>
+    </div>
+
+    <div id="level-up-toast">CẤP ĐỘ MỚI ĐÃ ĐƯỢC THIẾT LẬP</div>
+
+    <div id="ui">
+        <div class="stat-box">
+            <div style="font-size: 0.7em;">COMMANDER ALPHA-01</div>
+            <div>DIỆT ĐỊCH: <span id="score">0</span></div>
+            <div class="hp-bar"><div id="hp-fill"></div></div>
+        </div>
+
+        <div id="level-display" class="stat-box">
+            <div style="font-size: 0.7em; color: #0ff;">TIẾN TRÌNH CHIẾN DỊCH</div>
+            <div style="font-size: 1.5em; font-weight: 900;">CẤP: <span id="current-lvl">1</span> / 20</div>
+        </div>
+
+        <div id="radar-container">
+            <canvas id="radar-canvas" width="150" height="150"></canvas>
+        </div>
+
+        <div id="weapon-info">
+            <div class="stat-box">
+                <div style="font-size: 0.7em; color: #0ff;">VŨ KHÍ HIỆN TẠI</div>
+                <div id="current-wep" class="weapon-name">ALPHA-R4</div>
+                <div id="ammo-label" style="font-size: 0.7em; margin-top: 5px;">KHO ĐẠN TỔNG</div>
+                <div class="ammo-count"><span id="ammo-val">2800</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- GIAO DIỆN & HƯỚNG DẪN ---
+        window.nextStep = function(step) {
+            document.querySelectorAll('.tutorial-card').forEach(el => el.classList.remove('tutorial-active'));
+            const target = document.getElementById('step-' + step);
+            if(target) target.classList.add('tutorial-active');
+        };
+
+        // --- HỆ THỐNG ÂM THANH ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type = 'rifle') {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            
+            if (type === 'knife') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            } else if (type === 'grenade') {
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(100, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            } else {
+                oscillator.type = 'square';
+                filter.type = 'lowpass';
+                if (type === 'sniper') {
+                    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                } else if (type === 'shotgun') {
+                    oscillator.frequency.setValueAtTime(100, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.15);
+                    gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                } else if (type === 'smg' || type === 'minigun') {
+                    oscillator.frequency.setValueAtTime(type === 'minigun' ? 250 : 400, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+                    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                } else {
+                    oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.08);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                }
+            }
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (type === 'grenade' ? 0.8 : 0.2));
+            oscillator.connect(filter); filter.connect(gainNode); gainNode.connect(audioCtx.destination);
+            oscillator.start(); oscillator.stop(audioCtx.currentTime + (type === 'grenade' ? 0.8 : 0.5));
+        }
+
+        const MAP_LIMIT = 250; 
+        const WEAPONS = {
+            KNIFE:   { rate: 300, speed: 0, color: 0xffffff, name: "KA-BAR", sound: 'knife', type: 'melee', ammoCost: 0 },
+            PISTOL:  { rate: 400, speed: 3.5, color: 0xcccccc, name: "ALPHA-P1", sound: 'pistol', type: 'single', ammoCost: 1 },
+            RIFLE:   { rate: 150, speed: 5.0, color: 0x00ff00, name: "ALPHA-R4", sound: 'rifle', type: 'single', ammoCost: 1 },
+            SMG:     { rate: 70,  speed: 4.5, color: 0x00ffff, name: "ALPHA-S7", sound: 'smg', type: 'single', ammoCost: 1 },
+            SHOTGUN: { rate: 800, speed: 4.0, color: 0xff4400, name: "ALPHA-SG", sound: 'shotgun', type: 'spread', ammoCost: 5 },
+            MINIGUN: { rate: 45,  speed: 6.0, color: 0xffcc00, name: "GShG-7.62", sound: 'minigun', type: 'single', ammoCost: 1 },
+            SNIPER:  { rate: 1500, speed: 15.0, color: 0xff00ff, name: "ALPHA-X1", sound: 'sniper', type: 'single', ammoCost: 1 },
+            GRENADE: { rate: 1000, speed: 2.0, color: 0xff3300, name: "FRAG-G100", sound: 'grenade', type: 'grenade', ammoCost: 1 }
+        };
+
+        const WEP_KEYS = Object.keys(WEAPONS);
+        let currentWepIdx = 2; // R4
+
+        let scene, camera, renderer, clock, player, groundPlane;
+        let allies = [], enemies = [], bullets = [], particles = [], grenades = [];
+        let score = 0, hp = 100, gameStarted = false;
+        let teamAmmo = 2800;
+        let playerGrenades = 100;
+        let lastFireTime = 0;
+        
+        let currentLevel = 1;
+        let scoreInLevel = 0;
+        let spawnInterval = 1200;
+        let enemySpawnTimer;
+
+        const radarCanvas = document.getElementById('radar-canvas');
+        const radarCtx = radarCanvas.getContext('2d');
+        const keys = {};
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let isMouseDown = false;
+
+        window.initGame = function() {
+            document.getElementById('game-msg').style.display = 'none';
+            gameStarted = true;
+            if(!scene) startThreeJS();
+            else resetGame();
+        };
+
+        function startThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x00050a);
+            scene.fog = new THREE.FogExp2(0x00050a, 0.01);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 50, 50);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+            scene.add(new THREE.AmbientLight(0x4444ff, 0.5));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(50, 100, 50);
+            scene.add(sun);
+
+            const grid = new THREE.GridHelper(MAP_LIMIT * 2, 100, 0x00ffff, 0x001122);
+            scene.add(grid);
+
+            groundPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(2000, 2000),
+                new THREE.MeshBasicMaterial({ visible: false })
+            );
+            groundPlane.rotation.x = -Math.PI / 2;
+            scene.add(groundPlane);
+
+            createPlayer();
+            spawnAllies();
+
+            window.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                if(e.code === 'ArrowRight' || e.code === 'ArrowUp') { currentWepIdx = (currentWepIdx + 1) % WEP_KEYS.length; updateWeaponUI(); }
+                if(e.code === 'ArrowLeft' || e.code === 'ArrowDown') { currentWepIdx = (currentWepIdx - 1 + WEP_KEYS.length) % WEP_KEYS.length; updateWeaponUI(); }
+            });
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+            window.addEventListener('mousemove', (e) => {
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+            window.addEventListener('mousedown', () => isMouseDown = true);
+            window.addEventListener('contextmenu', (e) => { e.preventDefault(); isMouseDown = true; });
+            window.addEventListener('mouseup', () => isMouseDown = false);
+            
+            window.addEventListener('wheel', (e) => {
+                if (e.deltaY > 0) currentWepIdx = (currentWepIdx + 1) % WEP_KEYS.length;
+                else currentWepIdx = (currentWepIdx - 1 + WEP_KEYS.length) % WEP_KEYS.length;
+                updateWeaponUI();
+            });
+
+            animate();
+            startEnemySpawning();
+        }
+
+        function startEnemySpawning() {
+            if(enemySpawnTimer) clearInterval(enemySpawnTimer);
+            enemySpawnTimer = setInterval(() => { if(gameStarted) spawnEnemy(); }, spawnInterval);
+        }
+
+        function updateWeaponUI() { 
+            const wep = WEAPONS[WEP_KEYS[currentWepIdx]];
+            document.getElementById('current-wep').innerText = wep.name;
+            if (wep.type === 'grenade') {
+                document.getElementById('ammo-label').innerText = "CÒN LẠI";
+                document.getElementById('ammo-val').innerText = playerGrenades;
+            } else {
+                document.getElementById('ammo-label').innerText = "KHO ĐẠN TỔNG";
+                document.getElementById('ammo-val').innerText = teamAmmo;
+            }
+        }
+
+        function createPlayer() {
+            player = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.8), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
+            body.position.y = 1; player.add(body);
+            player.arm = new THREE.Group(); player.arm.position.set(0, 1.5, 0); player.add(player.arm);
+            const gun = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 1.8), new THREE.MeshStandardMaterial({color: 0x111111}));
+            gun.position.set(0.7, 0, 0.8); player.arm.add(gun); player.gunTip = gun;
+            scene.add(player);
+        }
+
+        function spawnAllies() {
+            for(let i=0; i<4; i++) {
+                const ally = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 0.7), new THREE.MeshStandardMaterial({color: 0x0066ff, emissive: 0x0066ff, emissiveIntensity: 0.3}));
+                body.position.y = 0.9; ally.add(body);
+                ally.arm = new THREE.Group(); ally.arm.position.set(0, 1.3, 0); ally.add(ally.arm);
+                const gun = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 1.5), new THREE.MeshStandardMaterial({color: 0x050505}));
+                gun.position.set(0.6, 0, 0.7); ally.arm.add(gun); ally.gunTip = gun;
+                const angle = (i / 4) * Math.PI * 2;
+                ally.position.set(Math.cos(angle)*40, 0, Math.sin(angle)*40);
+                ally.userData = { lastFire: 0, targetPos: ally.position.clone(), patrolTimer: 0 };
+                scene.add(ally); allies.push(ally);
+            }
+        }
+
+        function spawnEnemy(isBoss = false) {
+            const size = isBoss ? (5.0 + currentLevel/5) : (1.2 + Math.random());
+            const enemy = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(size, 0), 
+                new THREE.MeshStandardMaterial({
+                    color: isBoss ? 0xffaa00 : 0xff0044, 
+                    emissive: isBoss ? 0xffaa00 : 0xff0000, 
+                    emissiveIntensity: isBoss ? 2 : 1
+                })
+            );
+            const angle = Math.random() * Math.PI * 2;
+            const dist = MAP_LIMIT + (isBoss ? 80 : 50);
+            enemy.position.set(Math.cos(angle)*dist, size, Math.sin(angle)*dist);
+            
+            const levelBonus = (currentLevel - 1) * 1.5; 
+            enemy.userData = { 
+                speed: isBoss ? (4 + levelBonus*0.4) : (7 + Math.random() * 6 + levelBonus * 0.8),
+                hp: isBoss ? (20 + currentLevel*4) : Math.floor(1 + (currentLevel / 3)),
+                isBoss: isBoss
+            };
+            
+            scene.add(enemy); enemies.push(enemy);
+        }
+
+        function triggerGrenadeExplosion(pos) {
+            playSound('grenade');
+            createExplosion(pos, 0xffaa00, 40);
+            
+            let killsInThisBlast = 0;
+            const radius = 12.0;
+
+            const affected = enemies
+                .map((e, idx) => ({ index: idx, dist: e.position.distanceTo(pos), ref: e }))
+                .filter(item => item.dist < radius)
+                .sort((a, b) => a.dist - b.dist);
+
+            for (let item of affected) {
+                const e = item.ref;
+                if (e.userData.isBoss) {
+                    e.userData.hp -= 25; 
+                    if (e.userData.hp <= 0) {
+                        createExplosion(e.position, 0xffaa00, 60);
+                        scene.remove(e);
+                        enemies = enemies.filter(enemy => enemy !== e);
+                        score++; scoreInLevel++;
+                    }
+                } else {
+                    if (killsInThisBlast < 5) {
+                        createExplosion(e.position, 0xff0044, 15);
+                        scene.remove(e);
+                        enemies = enemies.filter(enemy => enemy !== e);
+                        score++; scoreInLevel++;
+                        killsInThisBlast++;
+                    }
+                }
+            }
+            
+            document.getElementById('score').innerText = score;
+            if(scoreInLevel >= 20) levelUp();
+        }
+
+        function performMelee(origin) {
+            const range = 6.0;
+            playSound('knife');
+            enemies.forEach((e, idx) => {
+                if (origin.position.distanceTo(e.position) < (e.userData.isBoss ? 9.0 : range)) {
+                    e.userData.hp -= 4; 
+                    createExplosion(e.position, 0xffffff, 5);
+                    if (e.userData.hp <= 0) {
+                        createExplosion(e.position, e.userData.isBoss ? 0xffaa00 : 0xff0044, e.userData.isBoss ? 50 : 15);
+                        scene.remove(e); enemies.splice(idx, 1);
+                        score++; scoreInLevel++;
+                        document.getElementById('score').innerText = score;
+                        if(scoreInLevel >= 20) levelUp();
+                    }
+                }
+            });
+        }
+
+        function fireProjectile(origin, targetPos, config) {
+            if (config.type === 'melee') {
+                performMelee(origin);
+                return;
+            }
+
+            if (config.type === 'grenade') {
+                if (playerGrenades <= 0) return;
+                playerGrenades--;
+                updateWeaponUI();
+                
+                const g = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshStandardMaterial({color: 0x004400}));
+                g.position.copy(origin.position).y += 2;
+                const time = 0.8;
+                g.userData = { 
+                    target: targetPos.clone(),
+                    start: g.position.clone(),
+                    elapsed: 0,
+                    duration: time,
+                    peak: 8.0
+                };
+                scene.add(g); grenades.push(g);
+                return;
+            }
+
+            if (teamAmmo < config.ammoCost) return;
+            teamAmmo -= config.ammoCost;
+            updateWeaponUI();
+
+            const spawnPos = new THREE.Vector3(); origin.gunTip.getWorldPosition(spawnPos);
+            const baseDir = new THREE.Vector3().subVectors(targetPos, spawnPos).normalize();
+            
+            if (config.type === 'spread') {
+                for (let i = -2; i <= 2; i++) {
+                    const b = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color: config.color}));
+                    b.position.copy(spawnPos);
+                    const dir = baseDir.clone();
+                    const spreadAngle = i * 0.15;
+                    const rotationMatrix = new THREE.Matrix4().makeRotationY(spreadAngle);
+                    dir.applyMatrix4(rotationMatrix);
+                    b.userData = { velocity: dir.multiplyScalar(config.speed) };
+                    scene.add(b); bullets.push(b);
+                }
+            } else {
+                const b = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color: config.color}));
+                b.position.copy(spawnPos);
+                const dir = baseDir.clone();
+                if(config.name === "GShG-7.62") {
+                    dir.x += (Math.random()-0.5) * 0.05;
+                    dir.y += (Math.random()-0.5) * 0.05;
+                }
+                b.userData = { velocity: dir.multiplyScalar(config.speed) };
+                scene.add(b); bullets.push(b);
+            }
+            playSound(config.sound);
+        }
+
+        function createExplosion(pos, color, count = 10) {
+            for(let i=0; i<count; i++) {
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({color: color}));
+                p.position.copy(pos);
+                p.userData = { vel: new THREE.Vector3((Math.random()-0.5)*1.2, Math.random()*1.2, (Math.random()-0.5)*1.2), life: 1.0 };
+                scene.add(p); particles.push(p);
+            }
+        }
+
+        function updateRadar() {
+            radarCtx.clearRect(0, 0, 150, 150);
+            const radarContainer = document.getElementById('radar-container');
+            if(enemies.length > 20) radarContainer.classList.add('danger-pulse');
+            else radarContainer.classList.remove('danger-pulse');
+
+            radarCtx.fillStyle = "rgba(0, 40, 40, 0.5)";
+            radarCtx.beginPath(); radarCtx.arc(75, 75, 75, 0, Math.PI * 2); radarCtx.fill();
+            
+            radarCtx.strokeStyle = "rgba(0, 255, 255, 0.2)";
+            radarCtx.beginPath(); radarCtx.moveTo(75, 0); radarCtx.lineTo(75, 150); radarCtx.stroke();
+            radarCtx.beginPath(); radarCtx.moveTo(0, 75); radarCtx.lineTo(150, 75); radarCtx.stroke();
+            
+            const scale = 75 / (MAP_LIMIT + 100);
+            allies.forEach(ally => {
+                const rx = 75 + ally.position.x * scale;
+                const ry = 75 + ally.position.z * scale;
+                radarCtx.fillStyle = "#00ff66";
+                radarCtx.beginPath(); radarCtx.arc(rx, ry, 2, 0, Math.PI * 2); radarCtx.fill();
+            });
+            enemies.forEach(enemy => {
+                const rx = 75 + enemy.position.x * scale;
+                const ry = 75 + enemy.position.z * scale;
+                radarCtx.fillStyle = "#ff0044";
+                const rSize = enemy.userData.isBoss ? 4 : 2;
+                radarCtx.beginPath(); radarCtx.arc(rx, ry, rSize, 0, Math.PI * 2); radarCtx.fill();
+            });
+            radarCtx.fillStyle = "#00ffff";
+            const px = 75 + player.position.x * scale;
+            const py = 75 + player.position.z * scale;
+            radarCtx.beginPath(); radarCtx.arc(px, py, 3, 0, Math.PI * 2); radarCtx.fill();
+        }
+
+        function levelUp() {
+            if (currentLevel >= 20) { gameWin(); return; }
+            currentLevel++;
+            scoreInLevel = 0;
+            spawnInterval = Math.max(150, 1200 - (currentLevel * 55)); 
+            startEnemySpawning();
+            
+            const toast = document.getElementById('level-up-toast');
+            if(currentLevel === 20) toast.innerText = "OMEGA ARRIVAL: FINAL STAND";
+            else if(currentLevel > 15) toast.innerText = `MUTATION PHASE: ${currentLevel}`;
+            else toast.innerText = `PHASE ${currentLevel}`;
+            
+            toast.style.opacity = "1";
+            setTimeout(() => toast.style.opacity = "0", 2500);
+            document.getElementById('current-lvl').innerText = currentLevel;
+            
+            if(currentLevel >= 15 && currentLevel < 19) {
+                scene.fog.color.setHex(0x110022);
+                scene.background.setHex(0x0a001a);
+            } else if(currentLevel >= 19) {
+                scene.fog.color.setHex(0x220000);
+                scene.background.setHex(0x110000);
+            }
+            spawnEnemy(true);
+        }
+
+        function gameWin() {
+            gameStarted = false;
+            const msg = document.getElementById('game-msg');
+            msg.style.display = 'flex';
+            msg.innerHTML = `
+                <div class="tutorial-card tutorial-active">
+                    <h1 style="font-size: 3em; margin: 0; color: #00ff88;">OMEGA CONQUERED</h1>
+                    <p style="color: #fff;">CHIẾN DỊCH 20 CẤP ĐỘ HOÀN TẤT. NGÀI LÀ ALPHA TỐI THƯỢNG.</p>
+                    <p style="color: #ffcc00;">ĐẠN CÒN DƯ: ${teamAmmo}</p>
+                    <button class="btn" onclick="location.reload()">BẮT ĐẦU LẠI</button>
+                </div>
+            `;
+        }
+
+        function resetGame() {
+            hp = 100; score = 0; scoreInLevel = 0; currentLevel = 1; spawnInterval = 1200; teamAmmo = 2800; playerGrenades = 100;
+            scene.fog.color.setHex(0x00050a);
+            scene.background.setHex(0x00050a);
+            document.getElementById('hp-fill').style.width = "100%";
+            document.getElementById('score').innerText = "0";
+            document.getElementById('current-lvl').innerText = "1";
+            updateWeaponUI();
+            enemies.forEach(e => scene.remove(e)); enemies = [];
+            player.position.set(0,0,0);
+            startEnemySpawning();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!gameStarted) return;
+            const dt = clock.getDelta();
+
+            const move = new THREE.Vector3();
+            if(keys['KeyW']) move.z -= 1; if(keys['KeyS']) move.z += 1;
+            if(keys['KeyA']) move.x -= 1; if(keys['KeyD']) move.x += 1;
+            if(move.length() > 0) player.position.add(move.normalize().multiplyScalar(22 * dt));
+
+            if (Math.abs(player.position.x) > MAP_LIMIT || Math.abs(player.position.z) > MAP_LIMIT) {
+                hp = 0; gameStarted = false;
+                const msg = document.getElementById('game-msg');
+                msg.style.display = 'flex';
+                msg.innerHTML = `
+                    <div class="tutorial-card tutorial-active">
+                        <h1 style="font-size: 3em; margin: 0; color: #ff8800;">MẤT TÍN HIỆU</h1>
+                        <p style="color: #fff;">NGÀI ĐÃ VƯỢT QUÁ GIỚI HẠN MAP. CHIẾN DỊCH THẤT BẠI.</p>
+                        <button class="btn" onclick="location.reload()">QUAY LẠI CĂN CỨ</button>
+                    </div>
+                `;
+                return;
+            }
+
+            camera.position.lerp(player.position.clone().add(new THREE.Vector3(0, 50, 50)), 0.1);
+            camera.lookAt(player.position);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(groundPlane);
+            if (intersects.length > 0) {
+                const tp = intersects[0].point;
+                player.lookAt(tp.x, player.position.y, tp.z);
+                player.arm.lookAt(tp);
+                if (isMouseDown) {
+                    const wep = WEAPONS[WEP_KEYS[currentWepIdx]];
+                    if (Date.now() - lastFireTime > wep.rate) {
+                        fireProjectile(player, tp, wep);
+                        lastFireTime = Date.now();
+                    }
+                }
+            }
+
+            for(let i = grenades.length - 1; i >= 0; i--) {
+                const g = grenades[i];
+                g.userData.elapsed += dt;
+                const t = g.userData.elapsed / g.userData.duration;
+                if(t >= 1) {
+                    triggerGrenadeExplosion(g.userData.target);
+                    scene.remove(g);
+                    grenades.splice(i, 1);
+                } else {
+                    g.position.lerpVectors(g.userData.start, g.userData.target, t);
+                    g.position.y += Math.sin(t * Math.PI) * g.userData.peak;
+                    g.rotation.x += 0.1; g.rotation.z += 0.1;
+                }
+            }
+
+            allies.forEach(ally => {
+                let target = null; let minDist = 80;
+                enemies.forEach(e => { const d = ally.position.distanceTo(e.position); if(d < minDist) { minDist = d; target = e; } });
+                if(target) {
+                    ally.lookAt(target.position.x, ally.position.y, target.position.z);
+                    ally.arm.lookAt(target.position);
+                    if(teamAmmo > 100 && minDist < 60 && Date.now() - ally.userData.lastFire > 1100) { 
+                        fireProjectile(ally, target.position.clone(), WEAPONS.PISTOL); 
+                        ally.userData.lastFire = Date.now(); 
+                    }
+                    if(minDist > 18) ally.translateZ(11 * dt);
+                } else {
+                    ally.userData.patrolTimer -= dt;
+                    if(ally.userData.patrolTimer <= 0) {
+                        ally.userData.targetPos = new THREE.Vector3((Math.random()-0.5)*(MAP_LIMIT*1.4), 0, (Math.random()-0.5)*(MAP_LIMIT*1.4));
+                        ally.userData.patrolTimer = 4 + Math.random() * 4;
+                    }
+                    ally.lookAt(ally.userData.targetPos.x, ally.position.y, ally.userData.targetPos.z);
+                    ally.translateZ(7 * dt);
+                }
+            });
+
+            for(let i = bullets.length-1; i >= 0; i--) {
+                const b = bullets[i]; b.position.add(b.userData.velocity);
+                let bRemoved = false;
+                for(let j = enemies.length-1; j >= 0; j--) {
+                    const e = enemies[j]; const hitDist = e.userData.isBoss ? (e.geometry.parameters.radius + 1) : 2.5;
+                    if(b.position.distanceTo(e.position) < hitDist) {
+                        e.userData.hp -= 1;
+                        createExplosion(b.position, e.userData.isBoss ? 0xffaa00 : 0xff0044, 4);
+                        if(e.userData.hp <= 0) {
+                            createExplosion(e.position, e.userData.isBoss ? 0xffaa00 : 0xff0044, e.userData.isBoss ? 60 : 15);
+                            scene.remove(e); enemies.splice(j, 1);
+                            score++; scoreInLevel++;
+                            document.getElementById('score').innerText = score;
+                            if(scoreInLevel >= 20) levelUp();
+                        }
+                        scene.remove(b); bullets.splice(i, 1); bRemoved = true; break;
+                    }
+                }
+                if(!bRemoved && b.position.length() > 600) { scene.remove(b); bullets.splice(i, 1); }
+            }
+
+            particles.forEach((p, i) => {
+                p.position.add(p.userData.vel); p.userData.life -= 0.025; p.scale.setScalar(p.userData.life);
+                if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+            });
+
+            enemies.forEach((e, i) => {
+                const dir = new THREE.Vector3().subVectors(player.position, e.position).normalize();
+                e.position.add(dir.multiplyScalar(e.userData.speed * dt)); e.rotation.y += e.userData.isBoss ? 0.02 : 0.06;
+                
+                const killDist = e.userData.isBoss ? (e.geometry.parameters.radius + 0.5) : 1.8;
+                if(e.position.distanceTo(player.position) < killDist) {
+                    hp = 0; 
+                    document.getElementById('hp-fill').style.width = "0%";
+                    gameStarted = false;
+                    const msg = document.getElementById('game-msg');
+                    msg.style.display = 'flex';
+                    msg.innerHTML = `
+                        <div class="tutorial-card tutorial-active">
+                            <h1 style="font-size: 3em; margin: 0; color: #ff0044;">ELIMINATED</h1>
+                            <p style="color: #fff;">ĐỊCH ĐÃ CHẠM VÀO NGƯỜI. ALPHA-01 HY SINH TẠI CẤP ${currentLevel}</p>
+                            <button class="btn" onclick="location.reload()">THỬ LẠI</button>
+                        </div>
+                    `;
+                }
+            });
+
+            updateRadar();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
