@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpha Group: Final Stand - Combat Update</title>
+    <title>Alpha Group: Final Stand - Mission Update</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Orbitron', sans-serif; }
@@ -106,7 +106,7 @@
             <h2 style="color: #0ff;">02. ĐỒNG ĐỘI & CHIẾN THUẬT</h2>
             <div style="text-align: left; color: #fff; margin: 20px 0;">
                 <p>• <b>Bot Đồng Đội</b>: Họ sẽ không chết khi chạm vào địch, nhưng sẽ dần bị <b>quá tải</b> bởi số lượng địch quá lớn và không thể bảo vệ ngài an toàn tuyệt đối qua từng cấp.</p>
-                <p>• <b>Boss</b>: Xuất hiện sau khi diệt một lượng địch nhất định. Cần rất nhiều hỏa lực để hạ gục.</p>
+                <p>• <b>Boss</b>: Xuất hiện sau khi diệt một lượng địch nhất định. Cần rất nhiều hỏa lực để hạ gục. (Hiện màu vàng trên radar).</p>
                 <p>• <b>Lựu Đạn</b>: Có 100 quả. Dùng để giải vây khi Bot bị quá tải.</p>
             </div>
             <button class="btn" onclick="nextStep(3)">TIẾP THEO</button>
@@ -187,11 +187,7 @@
             } else {
                 oscillator.type = 'square';
                 filter.type = 'lowpass';
-                if (type === 'sniper') {
-                    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
-                    oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                } else if (type === 'shotgun') {
+                if (type === 'shotgun') {
                     oscillator.frequency.setValueAtTime(100, audioCtx.currentTime);
                     oscillator.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.15);
                     gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
@@ -211,6 +207,7 @@
         }
 
         const MAP_LIMIT = 250; 
+        // Đã xóa SNIPER khỏi kho vũ khí
         const WEAPONS = {
             KNIFE:   { rate: 300, speed: 0, color: 0xffffff, name: "KA-BAR", sound: 'knife', type: 'melee', ammoCost: 0 },
             PISTOL:  { rate: 400, speed: 3.5, color: 0xcccccc, name: "ALPHA-P1", sound: 'pistol', type: 'single', ammoCost: 1 },
@@ -218,7 +215,6 @@
             SMG:     { rate: 70,  speed: 4.5, color: 0x00ffff, name: "ALPHA-S7", sound: 'smg', type: 'single', ammoCost: 1 },
             SHOTGUN: { rate: 800, speed: 4.0, color: 0xff4400, name: "ALPHA-SG", sound: 'shotgun', type: 'spread', ammoCost: 5 },
             MINIGUN: { rate: 45,  speed: 6.0, color: 0xffcc00, name: "GShG-7.62", sound: 'minigun', type: 'single', ammoCost: 1 },
-            SNIPER:  { rate: 1500, speed: 15.0, color: 0xff00ff, name: "ALPHA-X1", sound: 'sniper', type: 'single', ammoCost: 1 },
             GRENADE: { rate: 1000, speed: 2.0, color: 0xff3300, name: "FRAG-G100", sound: 'grenade', type: 'grenade', ammoCost: 1 }
         };
 
@@ -508,19 +504,33 @@
             radarCtx.beginPath(); radarCtx.moveTo(0, 75); radarCtx.lineTo(150, 75); radarCtx.stroke();
             
             const scale = 75 / (MAP_LIMIT + 100);
+            
+            // Vẽ Allies
             allies.forEach(ally => {
                 const rx = 75 + ally.position.x * scale;
                 const ry = 75 + ally.position.z * scale;
                 radarCtx.fillStyle = "#00ff66";
                 radarCtx.beginPath(); radarCtx.arc(rx, ry, 2, 0, Math.PI * 2); radarCtx.fill();
             });
+            
+            // Vẽ Enemies (với Boss hiển thị to hơn và màu vàng)
             enemies.forEach(enemy => {
                 const rx = 75 + enemy.position.x * scale;
                 const ry = 75 + enemy.position.z * scale;
-                radarCtx.fillStyle = "#ff0044";
-                const rSize = enemy.userData.isBoss ? 4 : 2;
-                radarCtx.beginPath(); radarCtx.arc(rx, ry, rSize, 0, Math.PI * 2); radarCtx.fill();
+                
+                if (enemy.userData.isBoss) {
+                    radarCtx.fillStyle = "#ffcc00"; // Màu vàng cho Boss
+                    radarCtx.beginPath(); 
+                    radarCtx.arc(rx, ry, 5, 0, Math.PI * 2); // Kích thước to hơn (5)
+                } else {
+                    radarCtx.fillStyle = "#ff0044"; // Màu đỏ cho lính thường
+                    radarCtx.beginPath(); 
+                    radarCtx.arc(rx, ry, 2, 0, Math.PI * 2); // Kích thước bình thường (2)
+                }
+                radarCtx.fill();
             });
+            
+            // Vẽ Player
             radarCtx.fillStyle = "#00ffff";
             const px = 75 + player.position.x * scale;
             const py = 75 + player.position.z * scale;
